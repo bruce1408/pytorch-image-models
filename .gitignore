@@ -108,6 +108,7 @@ output/
 *.pt
 *.torch
 *.gz
+*.onnx
 Untitled.ipynb
 Testing notebook.ipynb
 

@@ -1,7 +1,7 @@
 from typing import Optional, Tuple, List
-
+import os
 import torch
-
+import onnxsim
 
 def onnx_forward(onnx_file, example_input):
     import onnxruntime
@@ -45,6 +45,7 @@ def onnx_export(
             assert hasattr(model, 'default_cfg')
             input_size = model.default_cfg.get('input_size')
         example_input = torch.randn((batch_size,) + input_size, requires_grad=training)
+        print("example input shape is :", example_input.shape, training)
 
     # Run model once before export trace, sets padding for models with Conv2dSameExport. This means
     # that the padding for models with Conv2dSameExport (most models with tf_ prefix) is fixed for
@@ -54,35 +55,67 @@ def onnx_export(
     # issues in the tracing of the dynamic padding or errors attempting to export the model after jit
     # scripting it (an approach that should work). Perhaps in a future PyTorch or ONNX versions...
     original_out = model(example_input)
-
     input_names = input_names or ["input0"]
     output_names = output_names or ["output0"]
 
-    dynamic_axes = {'input0': {0: 'batch'}, 'output0': {0: 'batch'}}
+    print("dynamic size is ", dynamic_size)
     if dynamic_size:
-        dynamic_axes['input0'][2] = 'height'
-        dynamic_axes['input0'][3] = 'width'
-
+        
+        dynamic_axes = {'input0': {0: 'batch'}, 'output0': {0: 'batch'}}
+        # dynamic_axes['input0'][2] = 'height'
+        # dynamic_axes['input0'][3] = 'width'
+    else: 
+        dummy_input = torch.randn(1,3,224,224)
+        
+        
     if aten_fallback:
         export_type = torch.onnx.OperatorExportTypes.ONNX_ATEN_FALLBACK
     else:
         export_type = torch.onnx.OperatorExportTypes.ONNX
-
-    torch_out = torch.onnx._export(
+    torch_out = torch.onnx.export(
         model,
-        example_input,
+        example_input if dynamic_size else dummy_input,
         output_file,
         training=training_mode,
+        do_constant_folding=True, 
         export_params=True,
         verbose=verbose,
         input_names=input_names,
         output_names=output_names,
         keep_initializers_as_inputs=keep_initializers,
-        dynamic_axes=dynamic_axes,
+        dynamic_axes=dynamic_axes if dynamic_size else None,
         opset_version=opset,
         operator_export_type=export_type
     )
+    
+    print("=" * 10, output_file)
+    # Load the ONNX model
+    
+    
 
+    # Simplify the model
+    # onnx_model = onnx.load(output_file)
+    # simplified_model, check = onnxsim.simplify(onnx_model)
+
+    # # Check if the model has been simplified
+    # if check:
+    #     print("The model has been simplified.")
+    # else:
+    #     print("The model could not be simplified.")
+
+    # # 使用 splitext() 分割文件路径和后缀
+    # path_without_extension, file_extension = os.path.splitext(output_file)
+
+    # print(f"不含后缀的文件路径: {path_without_extension}")  # 'path/to/your/file'
+    # print(f"文件后缀: {file_extension}")  # '.txt'
+
+    # simplified_model_path = path_without_extension+"_onnsim.onnx"
+    # onnx.save(simplified_model, simplified_model_path)
+    
+    
+    
+    
+    
     if check:
         onnx_model = onnx.load(output_file)
         onnx.checker.check_model(onnx_model, full_check=True)  # assuming throw on error

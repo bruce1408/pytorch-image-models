@@ -19,29 +19,32 @@ Please do your research and search ONNX and PyTorch issue tracker before asking 
 Copyright 2020 Ross Wightman
 """
 import argparse
-
+import torch
 import timm
+import datetime
 from timm.utils.model import reparameterize_model
 from timm.utils.onnx import onnx_export
-
+from convert_onnx_to_onnxsim import onnx_simplify
 parser = argparse.ArgumentParser(description='PyTorch ImageNet Validation')
-parser.add_argument('output', metavar='ONNX_FILE',
+parser.add_argument('--output', metavar='ONNX_FILE',
+                    default="/mnt/share_disk/cdd/export_onnx_models",
                     help='output model filename')
-parser.add_argument('--model', '-m', metavar='MODEL', default='mobilenetv3_large_100',
+parser.add_argument('--model', '-m',
+                    default='swin_tiny_patch4_window7_224',
                     help='model architecture (default: mobilenetv3_large_100)')
-parser.add_argument('--opset', type=int, default=None,
+parser.add_argument('--opset', 
+                    type=int, 
+                    default=11,
                     help='ONNX opset to use (default: 10)')
 parser.add_argument('--keep-init', action='store_true', default=False,
                     help='Keep initializers as input. Needed for Caffe2 compatible export in newer PyTorch/ONNX.')
 parser.add_argument('--aten-fallback', action='store_true', default=False,
                     help='Fallback to ATEN ops. Helps fix AdaptiveAvgPool issue with Caffe2 in newer PyTorch/ONNX.')
-parser.add_argument('--dynamic-size', action='store_true', default=False,
-                    help='Export model width dynamic width/height. Not recommended for "tf" models with SAME padding.')
 parser.add_argument('--check-forward', action='store_true', default=False,
                     help='Do a full check of torch vs onnx forward after export.')
 parser.add_argument('-b', '--batch-size', default=1, type=int,
                     metavar='N', help='mini-batch size (default: 1)')
-parser.add_argument('--img-size', default=None, type=int,
+parser.add_argument('--img-size', default=224, type=int,
                     metavar='N', help='Input image dimension, uses model default if empty')
 parser.add_argument('--mean', type=float, nargs='+', default=None, metavar='MEAN',
                     help='Override mean pixel value of dataset')
@@ -49,14 +52,20 @@ parser.add_argument('--std', type=float,  nargs='+', default=None, metavar='STD'
                     help='Override std deviation of of dataset')
 parser.add_argument('--num-classes', type=int, default=1000,
                     help='Number classes in dataset')
-parser.add_argument('--checkpoint', default='', type=str, metavar='PATH',
+parser.add_argument('--checkpoint', default='/mnt/share_disk/cdd/pretrained_models/swin_tiny_patch4_window7_224_224.pth', type=str, metavar='PATH',
                     help='path to checkpoint (default: none)')
 parser.add_argument('--reparam', default=False, action='store_true',
                     help='Reparameterize model')
-parser.add_argument('--training', default=False, action='store_true',
+parser.add_argument('--training', 
+                    default=False, 
+                    # action='store_true',
                     help='Export in training mode (default is eval)')
 parser.add_argument('--verbose', default=False, action='store_true',
                     help='Extra stdout output')
+parser.add_argument('--dynamic-size', 
+                    # action='store_true', 
+                    default=True,
+                    help='Export model width dynamic width/height. Not recommended for "tf" models with SAME padding.')
 
 def main():
     args = parser.parse_args()
@@ -72,27 +81,33 @@ def main():
         args.model,
         num_classes=args.num_classes,
         in_chans=3,
-        pretrained=args.pretrained,
-        checkpoint_path=args.checkpoint,
-        exportable=True,
-    )
-
+        # pretrained=args.pretrained,
+        # checkpoint_path=args.checkpoint,
+        # exportable=False,
+        pretrained=True, 
+        pretrained_cfg_overlay=dict(file='/mnt/share_disk/cdd/pretrained_models/swin_tiny_patch4_window7_224.pth')
+    )    
     if args.reparam:
         model = reparameterize_model(model)
 
+    # checkpoint = torch.load(args.load_model)
+    # model.load_state_dict({k.replace('module.',''):v for k,v in model['model'].items()})
+    now = datetime.datetime.now()
+    model_file_name = args.output+f"/swin_tiny_patch4_window7_224_{now.strftime('%Y%m%d_%H%M%S')}.onnx"
+    print(args)
     onnx_export(
         model,
-        args.output,
+        model_file_name,
         opset=args.opset,
         dynamic_size=args.dynamic_size,
-        aten_fallback=args.aten_fallback,
-        keep_initializers=args.keep_init,
-        check_forward=args.check_forward,
+        # aten_fallback=args.aten_fallback,
+        # keep_initializers=args.keep_init,
+        # check_forward=args.check_forward,
         training=args.training,
         verbose=args.verbose,
         input_size=(3, args.img_size, args.img_size),
         batch_size=args.batch_size,
-    )
+    )   
 
 
 if __name__ == '__main__':

@@ -54,8 +54,11 @@ _logger = logging.getLogger('validate')
 
 parser = argparse.ArgumentParser(description='PyTorch ImageNet Validation')
 parser.add_argument('data', nargs='?', metavar='DIR', const=None,
+                    default="/mnt/share_disk/cdd/eval_data/imagenet",
                     help='path to dataset (*deprecated*, use --data-dir)')
-parser.add_argument('--data-dir', metavar='DIR',
+parser.add_argument('--data-dir', 
+                    default="/mnt/share_disk/cdd/eval_data/imagenet",
+                    metavar='DIR',
                     help='path to dataset (root dir)')
 parser.add_argument('--dataset', metavar='NAME', default='',
                     help='dataset type + name ("<type>/<name>") (default: ImageFolder or ImageTar if empty)')
@@ -74,7 +77,8 @@ parser.add_argument('--input-img-mode', default=None, type=str,
 parser.add_argument('--target-key', default=None, type=str,
                    help='Dataset key for target labels.')
 
-parser.add_argument('--model', '-m', metavar='NAME', default='dpn92',
+parser.add_argument('--model', '-m', metavar='NAME',
+                    default='swin_tiny_patch4_window7_224',
                     help='model architecture (default: dpn92)')
 parser.add_argument('--pretrained', dest='pretrained', action='store_true',
                     help='use pre-trained model')
@@ -108,7 +112,7 @@ parser.add_argument('--gp', default=None, type=str, metavar='POOL',
                     help='Global pool type, one of (fast, avg, max, avgmax, avgmaxc). Model default if None.')
 parser.add_argument('--log-freq', default=10, type=int,
                     metavar='N', help='batch logging frequency (default: 10)')
-parser.add_argument('--checkpoint', default='', type=str, metavar='PATH',
+parser.add_argument('--checkpoint', default='/mnt/share_disk/cdd/pretrained_models/swin_tiny_patch4_window7_224.pth', type=str, metavar='PATH',
                     help='path to latest checkpoint (default: none)')
 parser.add_argument('--num-gpu', type=int, default=1,
                     help='Number of GPUS to use')
